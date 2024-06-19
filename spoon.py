@@ -38,6 +38,17 @@ digits = [
     ["0","0","0","0","0","0","0"],
     ["0","0","0","0","1","0","0"],
     ["1","1","1","1","1","1","1"],#clear
+    ["1","0","0","1","0","0","0"],#H
+    ["1","1","1","1","0","0","1"],#I
+    #spin
+    ["0","0","0","0","1","1","1","1","1"],#13
+    ["1","0","0","0","0","1","1","1","1"],
+    ["1","1","0","0","0","0","1","1","1"],
+    ["1","1","1","0","0","0","0","1","1"],
+    ["1","1","1","1","1","0","0","0","0"],
+    ["0","1","1","1","1","1","0","0","0"],
+    ["0","0","1","1","1","1","1","0","0"],
+    ["0","0","0","1","1","1","1","1","0"],#20
     ]
 motor = digitalio.DigitalInOut(board.GP19)
 motor.direction = digitalio.Direction.OUTPUT
@@ -53,6 +64,16 @@ def setDig(pins, num):
     global digits
     for i in range(len(digits[num])):
         pins[i].value = bool(int(digits[num][i]))
+spinNum=12
+def nextSpin():
+    setDig(dig2,10)
+    setDig(dig1,10)
+    global spinNum
+    spinNum+=1
+    if spinNum > 20:
+        spinNum = 13;
+    setDig(spin,spinNum)
+#motor.value = True
 
 btnWasDown = False
 actionDone = False
@@ -64,8 +85,8 @@ dig1[7].value = True
 dig2[7].value = True
 dig1[8].value = True
 dig2[8].value = True
-setDig(dig2,10)
-setDig(dig1,10)
+setDig(dig2,12)
+setDig(dig1,11)
 
 while True:
     if not btn.value:
@@ -76,25 +97,57 @@ while True:
         elif time.monotonic()-btnDownTime > 1 and not actionDone:
             actionDone = True
             if state == "main":
-                state="timer"
+                state="spin"
                 setDig(dig1,0)
                 setDig(dig2,2)
                 timerStart = time.monotonic()
+                motor.value = True
+                while time.monotonic()-timerStart < 2:
+                    nextSpin()
+                    time.sleep(0.1)
+                motor.value = False
+                state = "timer"
+                timerStart = time.monotonic()
+            else:
+                state = "main"
+                setDig(dig2,12)
+                setDig(dig1,11)
     elif btnWasDown:
         btnWasDown = False
         if not actionDone:
             downTime = time.monotonic()-btnDownTime
-            print(downTime)
+            if state == "done":
+                state = "main"
+                setDig(dig2,12)
+                setDig(dig1,11)
     if state == "timer":
         timeDur = time.monotonic()-timerStart
-        if timeDur < 14*60: #minutes display
+        if timeDur < 8*60: #1st, display 8 mins
             dig1[7].value = math.floor((timeDur))%2==0
-            clockTime = 2 - math.floor((time.monotonic()-timerStart)/60)
+            clockTime = 3 - math.floor((time.monotonic()-timerStart)/60)#change 1 to 60
             setDig(dig1, math.floor(clockTime/10))
             setDig(dig2, clockTime%10)
-        else #seconds display
+        else:
+            state = "spin"
+            timerStart = time.monotonic()
+            motor.value = True
+            while time.monotonic()-timerStart <10:
+                nextSpin()
+                time.sleep(0.1)
+            motor.value = False
+            state = "timer2"
+            timerStart = time.monotonic()
+    elif state == "timer2":
+        timeDur = time.monotonic()-timerStart
+        if timeDur < 6*60: #2nd, display 6 mins
+            dig1[7].value = math.floor((timeDur))%2==0
+            clockTime = 2 - math.floor((time.monotonic()-timerStart)/60)#change 1 to 60
+            setDig(dig1, math.floor(clockTime/10))
+            setDig(dig2, clockTime%10)
+        elif timeDur < 7*60: #3rd, seconds display
             dig1[7].value = True
-            clockTime = 60 - math.floor((time.monotonic()-timerStart-14*60))
+            clockTime = 60 - math.floor((time.monotonic()-timerStart-1*60))#change 1 to 60
             setDig(dig1, math.floor(clockTime/10))
             setDig(dig2, clockTime%10)
-  
+        else:
+            state = "done"

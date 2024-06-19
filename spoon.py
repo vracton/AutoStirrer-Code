@@ -110,8 +110,7 @@ while True:
                     nextSpin()
                     time.sleep(0.1)
                 motor.value = False
-                state = "done"
-                audio.play(decoder, loop=True)
+                state = "timer"
                 timerStart = time.monotonic()
             else:
                 state = "main"

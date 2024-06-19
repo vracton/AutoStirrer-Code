@@ -1,5 +1,7 @@
 import digitalio
 import board
+import audiomp3
+import audiopwmio
 import math
 import time
 
@@ -56,6 +58,8 @@ for i in dig1:
     i.direction = digitalio.Direction.OUTPUT
 for i in dig2:
     i.direction = digitalio.Direction.OUTPUT
+audio = audiopwmio.PWMAudioOut(board.GP18)
+decoder = audiomp3.MP3Decoder(open("slow.mp3", "rb"))
 btn = digitalio.DigitalInOut(board.GP27)
 btn.direction = digitalio.Direction.INPUT
 btn.pull = digitalio.Pull.UP
@@ -106,10 +110,12 @@ while True:
                     nextSpin()
                     time.sleep(0.1)
                 motor.value = False
-                state = "timer"
+                state = "done"
+                audio.play(decoder, loop=True)
                 timerStart = time.monotonic()
             else:
                 state = "main"
+                audio.stop()
                 setDig(dig2,12)
                 setDig(dig1,11)
     elif btnWasDown:
@@ -118,11 +124,12 @@ while True:
             downTime = time.monotonic()-btnDownTime
             if state == "done":
                 state = "main"
+                audio.stop()
                 setDig(dig2,12)
                 setDig(dig1,11)
     if state == "timer":
         timeDur = time.monotonic()-timerStart
-        if timeDur < 8*60: #1st, display 8 mins
+        if timeDur < 1*60:#first dur 8 mins
             dig1[7].value = math.floor((timeDur))%2==0
             clockTime = 3 - math.floor((time.monotonic()-timerStart)/60)#change 1 to 60
             setDig(dig1, math.floor(clockTime/10))
@@ -139,15 +146,21 @@ while True:
             timerStart = time.monotonic()
     elif state == "timer2":
         timeDur = time.monotonic()-timerStart
-        if timeDur < 6*60: #2nd, display 6 mins
+        if timeDur < 1*60:#2nd dur 6mins
             dig1[7].value = math.floor((timeDur))%2==0
             clockTime = 2 - math.floor((time.monotonic()-timerStart)/60)#change 1 to 60
             setDig(dig1, math.floor(clockTime/10))
             setDig(dig2, clockTime%10)
-        elif timeDur < 7*60: #3rd, seconds display
+        elif timeDur < 2*60:#3rd dir 1 min
             dig1[7].value = True
             clockTime = 60 - math.floor((time.monotonic()-timerStart-1*60))#change 1 to 60
             setDig(dig1, math.floor(clockTime/10))
             setDig(dig2, clockTime%10)
         else:
             state = "done"
+            audio.play(decoder, loop=True)
+    elif state == "done":
+        dig1[7].value = True
+        timeDur = time.monotonic()-timerStart
+        setDig(dig1,math.floor((timeDur))%2*10)
+        setDig(dig2,math.floor((timeDur))%2*10)
